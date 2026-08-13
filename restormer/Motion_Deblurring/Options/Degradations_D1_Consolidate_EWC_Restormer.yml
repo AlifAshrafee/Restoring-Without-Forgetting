@@ -1,0 +1,28 @@
+name: Degradations_D1_Consolidate_EWC_Restormer
+scale: 1
+manual_seed: 100
+
+datasets:
+  train:
+    name: ConsolidationSet_D1_denoise
+    type: Dataset_PairedImage
+    dataroot_gt: ./Motion_Deblurring/Datasets/train/D1_denoise/target_crops
+    dataroot_lq: ./Motion_Deblurring/Datasets/train/D1_denoise/input_crops
+    geometric_augs: false  # off for a lower-variance Fisher estimate
+    filename_tmpl: "{}"
+    io_backend:
+      type: disk
+    gt_size: 224  # required for train-phase random crop
+    prefetch_mode: ~
+
+network_g:
+  type: Restormer
+  inp_channels: 3
+  out_channels: 3
+  dim: 48
+  num_blocks: [4, 6, 6, 8]
+  num_refinement_blocks: 4
+  heads: [1, 2, 4, 8]
+  ffn_expansion_factor: 2.66
+  bias: False
+  LayerNorm_type: WithBias

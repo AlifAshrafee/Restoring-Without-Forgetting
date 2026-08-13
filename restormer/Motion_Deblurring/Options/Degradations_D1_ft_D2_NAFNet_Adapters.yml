@@ -1,0 +1,136 @@
+## D2 (Deblurring) with D1 (SIDD Denoising) Pretrained Weights and Adapters
+# general settings
+name: Degradations_D1_ft_D2_NAFNet_Adapters
+model_type: AdapterModel
+scale: 1
+num_gpu: 1 # set to 0 for cpu mode, adjust based on available GPUs
+manual_seed: 100
+
+# adapter settings
+adapter_training: true
+commit_loaded_adapter: false  # false for D2, true for D3 onward
+current_domain: 0  # D1=-1 (pure backbone), D2=0, D3=1, D4=2, D5=3
+
+# dataset and data loader settings
+datasets:
+  train:
+    name: TrainSet_Degradations_D1_ft_D2_NAFNet_Adapters
+    type: Dataset_PairedImage
+    dataroot_gt: ./Motion_Deblurring/Datasets/train/D2_deblur/target_crops
+    dataroot_lq: ./Motion_Deblurring/Datasets/train/D2_deblur/input_crops
+    geometric_augs: true
+
+    filename_tmpl: "{}"
+    io_backend:
+      type: disk
+
+    # data loader
+    use_shuffle: true
+    num_worker_per_gpu: 8
+    batch_size_per_gpu: 8
+
+    ### ------- Training on single fixed-patch size 224x224---------
+    mini_batch_sizes: [8]
+    iters: [100000]
+    gt_size: 224
+    gt_sizes: [224]
+    ### ------------------------------------------------------------
+
+    dataset_enlarge_ratio: 1
+    prefetch_mode: ~
+
+  val:
+    name: ValSet_Degradations_D1_ft_D2_NAFNet_Adapters
+    type: Dataset_PairedImage
+    dataroot_gt: ./Motion_Deblurring/Datasets/val/D2_deblur/target_crops
+    dataroot_lq: ./Motion_Deblurring/Datasets/val/D2_deblur/input_crops
+    io_backend:
+      type: disk
+
+# network structures - NAFNet-SIDD-width32 topology
+network_g:
+  type: NAFNetAdapters
+  img_channel: 3
+  width: 32
+  middle_blk_num: 12
+  enc_blk_nums: [2, 2, 4, 8]
+  dec_blk_nums: [2, 2, 2, 2]
+  # adapter configuration
+  adapter_config:
+    bottleneck: 64  # options: 32, 64, 128 (Medium priority)
+    dropout: 0.1  # options: 0.0, 0.1, 0.2 (Low priority)
+    adapter_scalar: "1.0"  # options: "learnable_scalar", "0.5", "2.0" (Medium priority)
+    adapter_layernorm_option: in  # options: out, None (Low priority)
+    adapter_option: sequential  # options: parallel, sequential (High priority)
+    adapter_momentum: 0.0
+
+# path
+path:
+  pretrain_network_g: ./experiments/archived_checkpoints/Degradations_D1_only/NAFNet-SIDD-width32.pth
+  strict_load_g: false # allows loading checkpoints with missing keys (extra adapter params randomly initialized)
+  resume_state: ~
+
+# training settings
+train:
+  total_iter: 100000
+  warmup_iter: -1 # no warm up
+  use_grad_clip: true
+
+  # Single-cycle cosine annealing: 2e-4 -> 1e-6 over 100k iterations.
+  # Lower starting LR than NAFNet's from-scratch 1e-3 because we are
+  # fine-tuning from a SIDD-denoising pretrained backbone.
+  scheduler:
+    type: CosineAnnealingRestartCyclicLR
+    periods: [100000]
+    restart_weights: [1]
+    eta_mins: [0.000001]
+
+  mixing_augs:
+    mixup: false
+    mixup_beta: 1.2
+    use_identity: true
+
+  optim_g:
+    type: AdamW
+    lr: !!float 2e-4
+    weight_decay: !!float 1e-4
+    betas: [0.9, 0.999]
+
+  # losses
+  pixel_opt:
+    type: L1Loss
+    loss_weight: 1
+    reduction: mean
+
+# validation settings
+val:
+  window_size: 0  # NAFNet handles padding internally via check_image_size
+  val_freq: !!float 4e3
+  save_img: false
+  rgb2bgr: true
+  use_image: true
+  max_minibatch: 8
+
+  metrics:
+    psnr:
+      type: calculate_psnr
+      crop_border: 0
+      test_y_channel: false
+    ssim:
+      type: calculate_ssim
+      crop_border: 0
+      test_y_channel: false
+
+# logging settings
+logger:
+  print_freq: 1000
+  save_checkpoint_freq: !!float 5e3
+  use_tb_logger: true
+  wandb:
+    project: ~
+    resume_id: ~
+
+# dist training settings
+dist_params:
+  backend: nccl
+  port: 29500

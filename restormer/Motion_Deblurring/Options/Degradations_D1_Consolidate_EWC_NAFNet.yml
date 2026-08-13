@@ -1,0 +1,25 @@
+name: Degradations_D1_Consolidate_EWC_NAFNet
+scale: 1
+manual_seed: 100
+
+datasets:
+  train:
+    name: ConsolidationSet_D1_denoise
+    type: Dataset_PairedImage
+    dataroot_gt: ./Motion_Deblurring/Datasets/train/D1_denoise/target_crops
+    dataroot_lq: ./Motion_Deblurring/Datasets/train/D1_denoise/input_crops
+    geometric_augs: false  # off for a lower-variance Fisher estimate
+    filename_tmpl: "{}"
+    io_backend:
+      type: disk
+    gt_size: 224  # required for train-phase random crop
+    prefetch_mode: ~
+
+# network structures - NAFNet-SIDD-width32 topology
+network_g:
+  type: NAFNet
+  img_channel: 3
+  width: 32
+  middle_blk_num: 12
+  enc_blk_nums: [2, 2, 4, 8]
+  dec_blk_nums: [2, 2, 2, 2]

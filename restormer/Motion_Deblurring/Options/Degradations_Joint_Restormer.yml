@@ -1,0 +1,127 @@
+## Joint (All-in-one) Degradations Training from scratch
+# general settings
+name: Degradations_Joint_Restormer
+model_type: ImageCleanModel
+scale: 1
+num_gpu: 1 # set to 0 for cpu mode, adjust based on available GPUs
+manual_seed: 100
+
+# dataset and data loader settings
+datasets:
+  train:
+    name: TrainSet_Degradations_Joint_Restormer
+    type: Dataset_PairedImage
+    dataroot_gt: ./Motion_Deblurring/Datasets/train/joint_degradations/target_crops
+    dataroot_lq: ./Motion_Deblurring/Datasets/train/joint_degradations/input_crops
+    geometric_augs: true
+
+    filename_tmpl: "{}"
+    io_backend:
+      type: disk
+
+    # data loader
+    use_shuffle: true
+    num_worker_per_gpu: 8
+    batch_size_per_gpu: 2
+
+    ### ------- Training on single fixed-patch size 224x224---------
+    mini_batch_sizes: [2]
+    iters: [100000]
+    gt_size: 224
+    gt_sizes: [224]
+    ### ------------------------------------------------------------
+
+    dataset_enlarge_ratio: 1
+    prefetch_mode: ~
+
+  val:
+    name: ValSet_Degradations_Joint_Restormer
+    type: Dataset_PairedImage
+    dataroot_gt: ./Motion_Deblurring/Datasets/val/joint_degradations/target_crops
+    dataroot_lq: ./Motion_Deblurring/Datasets/val/joint_degradations/input_crops
+    io_backend:
+      type: disk
+
+# network structures
+network_g:
+  type: Restormer
+  inp_channels: 3
+  out_channels: 3
+  dim: 48
+  num_blocks: [4, 6, 6, 8]
+  num_refinement_blocks: 4
+  heads: [1, 2, 4, 8]
+  ffn_expansion_factor: 2.66
+  bias: False
+  LayerNorm_type: WithBias
+
+# path
+path:
+  pretrain_network_g: ~
+  strict_load_g: true
+  resume_state: ~
+
+# training settings
+train:
+  total_iter: 100000
+  warmup_iter: -1 # no warm up
+  use_grad_clip: true
+
+  # Single-cycle cosine annealing: 2e-4 -> 1e-6 over 100k iterations.
+  # Lower starting LR than Restormer's from-scratch 3e-4 because we are
+  # fine-tuning from a Gaussian-denoising pretrained backbone.
+  scheduler:
+    type: CosineAnnealingRestartCyclicLR
+    periods: [100000]
+    restart_weights: [1]
+    eta_mins: [0.000001]
+
+  mixing_augs:
+    mixup: false
+    mixup_beta: 1.2
+    use_identity: true
+
+  optim_g:
+    type: AdamW
+    lr: !!float 2e-4
+    weight_decay: !!float 1e-4
+    betas: [0.9, 0.999]
+
+  # losses
+  pixel_opt:
+    type: L1Loss
+    loss_weight: 1
+    reduction: mean
+
+# validation settings
+val:
+  window_size: 8
+  val_freq: !!float 4e3
+  save_img: false
+  rgb2bgr: true
+  use_image: true
+  max_minibatch: 2
+
+  metrics:
+    psnr:
+      type: calculate_psnr
+      crop_border: 0
+      test_y_channel: false
+    ssim:
+      type: calculate_ssim
+      crop_border: 0
+      test_y_channel: false
+
+# logging settings
+logger:
+  print_freq: 1000
+  save_checkpoint_freq: !!float 5e3
+  use_tb_logger: true
+  wandb:
+    project: ~
+    resume_id: ~
+
+# dist training settings
+dist_params:
+  backend: nccl
+  port: 29500
