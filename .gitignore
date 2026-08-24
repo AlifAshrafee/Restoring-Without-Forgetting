@@ -1,7 +1,4 @@
 datasets/
-psf_library/
-star_psfs_separated/
-toleranced_psfs_separated/
 restormer/Motion_Deblurring/Datasets/
 restormer/tb_logger/
 
@@ -11,8 +8,6 @@ restormer/tb_logger/
 *.pkl
 *.pickle
 *.npz
-# To track PSF libraries, uncomment:
-# !star_psfs_separated/psf_library_*.npz
 
 checkpoints/
 weights/
@@ -30,19 +25,14 @@ tensorboard/
 wandb/
 mlruns/
 
-results/
-visualizations/
-
 __pycache__/
 *.py[cod]
 *$py.class
 
 .env
 .venv
-.gggt_venv
 env/
 venv/
-gggt_venv/
 .conda/
 
 .ipynb_checkpoints/
