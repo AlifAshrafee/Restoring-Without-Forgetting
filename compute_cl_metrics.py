@@ -1,8 +1,8 @@
 """
 Usage:
     python compute_cl_metrics.py \
-        --psnr_matrix restormer_psnr_matrix.json \
-        --ssim_matrix restormer_ssim_matrix.json
+        --psnr_matrix /path/to/psnr_matrix.json \
+        --ssim_matrix /path/to/ssim_matrix.json
 """
 
 import argparse
